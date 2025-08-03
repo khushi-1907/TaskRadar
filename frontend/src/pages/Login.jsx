@@ -33,7 +33,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f9f0ff] to-[#e0f7fa] px-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-[#f9f0ff] to-[#e0f7fa] px-4">
       <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 w-full max-w-md relative overflow-hidden">
         {/* Decorative elements */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#f0abfc]/20 rounded-full"></div>
