@@ -1,16 +1,162 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToParentElement } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
+import { useDraggable } from '@dnd-kit/core';
 import api from '../api';
+import { 
+  PencilSquareIcon, 
+  TrashIcon, 
+  CheckIcon, 
+  XMarkIcon,
+  PlusCircleIcon,
+  ArrowsPointingOutIcon
+} from '@heroicons/react/24/outline';
 
 const PRESET_COLORS = [
-  { name: 'Yellow', value: '#fef3c7' },
-  { name: 'Pink', value: '#fce7f3' },
-  { name: 'Blue', value: '#dbeafe' },
-  { name: 'Green', value: '#d1fae5' },
-  { name: 'Purple', value: '#ede9fe' },
-  { name: 'Orange', value: '#fed7aa' }
+  { name: 'Yellow', value: 'bg-yellow-100 border-yellow-200' },
+  { name: 'Blue', value: 'bg-blue-100 border-blue-200' },
+  { name: 'Green', value: 'bg-green-100 border-green-200' },
+  { name: 'Pink', value: 'bg-pink-100 border-pink-200' },
+  { name: 'Purple', value: 'bg-purple-100 border-purple-200' },
 ];
+
+const NoteCard = ({ 
+  note, 
+  onUpdate, 
+  onDelete, 
+  onResize,
+  containerRef 
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [content, setContent] = useState(note.content);
+  const [showControls, setShowControls] = useState(false);
+  const noteRef = useRef(null);
+  const resizeHandleRef = useRef(null);
+
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: note._id,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    touchAction: 'none',
+  };
+
+  const handleUpdate = async () => {
+    await onUpdate(note._id, { content });
+    setIsEditing(false);
+  };
+
+  const handleResizeStart = useCallback((e) => {
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = note.width;
+    const startHeight = note.height;
+
+    const handleMouseMove = (e) => {
+      const newWidth = Math.max(150, Math.min(startWidth + (e.clientX - startX), 400));
+      const newHeight = Math.max(150, Math.min(startHeight + (e.clientY - startY), 400));
+      onResize(note._id, newWidth, newHeight);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove, { passive: false });
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleMouseMove, { passive: false });
+    document.addEventListener('touchend', handleMouseUp);
+  }, [note._id, note.width, note.height, onResize]);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        width: `${note.width}px`,
+        height: `${note.height}px`,
+        left: `${note.x}px`,
+        top: `${note.y}px`,
+      }}
+      className={`absolute rounded-xl shadow-lg p-4 flex flex-col ${note.color} transition-transform duration-100 select-none border`}
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => setShowControls(false)}
+      {...listeners}
+      {...attributes}
+    >
+      {isEditing ? (
+        <textarea
+          className="flex-1 bg-transparent outline-none resize-none text-gray-700"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          autoFocus
+        />
+      ) : (
+        <div className="flex-1 overflow-auto whitespace-pre-wrap text-gray-700">
+          {note.content}
+        </div>
+      )}
+
+      {showControls && (
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex space-x-2">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleUpdate}
+                  className="p-1.5 text-white bg-green-500 rounded-full hover:bg-green-600 transition-colors"
+                  title="Save"
+                >
+                  <CheckIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setContent(note.content);
+                  }}
+                  className="p-1.5 text-white bg-red-500 rounded-full hover:bg-red-600 transition-colors"
+                  title="Cancel"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="p-1.5 text-gray-600 bg-white rounded-full hover:bg-gray-100 transition-colors"
+                title="Edit"
+              >
+                <PencilSquareIcon className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={() => onDelete(note._id)}
+              className="p-1.5 text-gray-600 bg-white rounded-full hover:bg-gray-100 transition-colors"
+              title="Delete"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <div
+            ref={resizeHandleRef}
+            className="w-5 h-5 bg-white rounded-full cursor-se-resize touch-none flex items-center justify-center border border-gray-300 shadow-sm"
+            onMouseDown={handleResizeStart}
+            onTouchStart={handleResizeStart}
+            title="Resize"
+          >
+            <ArrowsPointingOutIcon className="h-3 w-3 text-gray-500" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const StickyNotes = () => {
   const [notes, setNotes] = useState([]);
@@ -18,46 +164,56 @@ const StickyNotes = () => {
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0].value);
   const [newNoteContent, setNewNoteContent] = useState('');
   const [showNewNoteForm, setShowNewNoteForm] = useState(false);
+  const [error, setError] = useState('');
   const containerRef = useRef(null);
 
-  // Configure sensors for mouse and touch input
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 10, // Require 10px movement before dragging starts
+        distance: 10,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // Wait 250ms before dragging starts on touch devices
-        tolerance: 5, // Allow 5px movement while waiting
+        delay: 250,
+        tolerance: 5,
       },
     })
   );
 
-  useEffect(() => {
-    loadNotes();
-  }, []);
-
-  const loadNotes = async () => {
+  const loadNotes = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const { data } = await api.get('/api/sticky-notes');
       setNotes(data);
     } catch (error) {
+      setError(error.response?.data?.message || 'Failed to load notes');
       console.error('Error loading notes:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const createNewNote = async () => {
-    if (!newNoteContent.trim()) return;
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  const createNewNote = useCallback(async () => {
+    if (!newNoteContent.trim()) {
+      setError('Note content cannot be empty');
+      return;
+    }
 
     try {
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      const maxX = containerRect ? containerRect.width - 240 : window.innerWidth - 240;
+      const maxY = containerRect ? containerRect.height - 240 : window.innerHeight - 240;
+
       const { data } = await api.post('/api/sticky-notes', {
         content: newNoteContent,
-        x: Math.random() * 200,
-        y: Math.random() * 200,
+        x: Math.max(0, Math.min(Math.random() * maxX, maxX)),
+        y: Math.max(0, Math.min(Math.random() * maxY, maxY)),
         color: selectedColor,
         width: 240,
         height: 240
@@ -66,203 +222,174 @@ const StickyNotes = () => {
       setNotes([...notes, data]);
       setNewNoteContent('');
       setShowNewNoteForm(false);
+      setError('');
     } catch (error) {
+      setError(error.response?.data?.message || 'Failed to create note');
       console.error('Error creating note:', error);
     }
-  };
+  }, [newNoteContent, selectedColor, notes]);
 
-  const updateNote = async (id, updateData) => {
+  const updateNote = useCallback(async (id, updateData) => {
     try {
       const { data } = await api.put(`/api/sticky-notes/${id}`, updateData);
       setNotes(notes.map(note => note._id === id ? data : note));
     } catch (error) {
+      setError(error.response?.data?.message || 'Failed to update note');
       console.error('Error updating note:', error);
     }
-  };
+  }, [notes]);
 
-  const deleteNote = async (id) => {
+  const deleteNote = useCallback(async (id) => {
     try {
       await api.delete(`/api/sticky-notes/${id}`);
       setNotes(notes.filter(note => note._id !== id));
     } catch (error) {
+      setError(error.response?.data?.message || 'Failed to delete note');
       console.error('Error deleting note:', error);
     }
-  };
+  }, [notes]);
 
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
+  const handleDragEnd = useCallback(async (event) => {
+    const { active, delta } = event;
     
-    if (!active || !over || active.id === over.id) return;
-
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
+    if (!active) return;
 
     const noteId = active.id;
-    const newX = event.over?.rect.left - containerRect.left;
-    const newY = event.over?.rect.top - containerRect.top;
+    const note = notes.find(n => n._id === noteId);
+    if (!note) return;
 
-    // Update the note position
-    await updateNote(noteId, { 
-      x: Math.max(0, Math.min(newX, containerRect.width - 240)),
-      y: Math.max(0, Math.min(newY, containerRect.height - 240))
-    });
-  };
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    const maxX = containerRect ? containerRect.width - note.width : window.innerWidth - note.width;
+    const maxY = containerRect ? containerRect.height - note.height : window.innerHeight - note.height;
 
-  const handleResize = async (noteId, newWidth, newHeight) => {
+    const newX = Math.max(0, Math.min(note.x + delta.x, maxX));
+    const newY = Math.max(0, Math.min(note.y + delta.y, maxY));
+
+    await updateNote(noteId, { x: newX, y: newY });
+  }, [notes, updateNote]);
+
+  const handleResize = useCallback(async (noteId, newWidth, newHeight) => {
     await updateNote(noteId, { 
-      width: Math.max(100, Math.min(newWidth, 400)), 
-      height: Math.max(100, Math.min(newHeight, 400)) 
+      width: Math.max(150, Math.min(newWidth, 400)), 
+      height: Math.max(150, Math.min(newHeight, 400)) 
     });
-  };
+  }, [updateNote]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex flex-col">
-      <div className="container mx-auto w-full px-4 py-8 flex-1 flex flex-col">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Sticky Notes</h1>
-          <button
-            onClick={() => setShowNewNoteForm(!showNewNoteForm)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Note
-          </button>
-        </div>
-
-        {showNewNoteForm && (
-          <div className="bg-white rounded-lg shadow-lg p-4 mb-6 max-w-md">
-            <h3 className="text-lg font-semibold mb-3">Create New Note</h3>
-            <textarea
-              value={newNoteContent}
-              onChange={(e) => setNewNoteContent(e.target.value)}
-              placeholder="What's on your mind?"
-              className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500"
-              maxLength={500}
-            />
-            <div className="flex gap-2 my-3">
-              {PRESET_COLORS.map(color => (
+    <div className="min-h-screen bg-gradient-to-br from-[#f9f0ff] to-[#e0f7fa]">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 md:p-8 relative overflow-hidden">
+            {/* Decorative elements */}
+            <div className="absolute -top-16 -right-16 w-40 h-40 bg-[#f0abfc]/20 rounded-full" aria-hidden="true" />
+            <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-[#67e8f9]/30 rounded-full" aria-hidden="true" />
+            
+            <div className="relative z-10">
+              {/* Header */}
+              <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-blue-500">
+                    Sticky Notes
+                  </h1>
+                  <p className="text-gray-500">Organize your thoughts and ideas</p>
+                </div>
                 <button
-                  key={color.value}
-                  onClick={() => setSelectedColor(color.value)}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    selectedColor === color.value ? 'border-gray-800' : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: color.value }}
-                  title={color.name}
-                />
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={createNewNote}
-                disabled={!newNoteContent.trim()}
-                className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => {
-                  setShowNewNoteForm(false);
-                  setNewNoteContent('');
-                }}
-                className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-lg"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div 
-          ref={containerRef}
-          className="relative bg-gray-50 rounded-lg p-4" 
-          style={{ minHeight: '600px' }}
-        >
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-          ) : notes.length === 0 ? (
-            <div className="text-center py-16">
-              <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-gray-500">No notes yet. Create your first sticky note!</p>
-            </div>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-              modifiers={[restrictToParentElement]}
-            >
-              {notes.map(note => (
-                <div
-                  key={note._id}
-                  id={note._id}
-                  className="absolute shadow-lg rounded-lg p-3 cursor-move transition-shadow hover:shadow-xl"
-                  style={{
-                    left: note.x,
-                    top: note.y,
-                    width: note.width,
-                    height: note.height,
-                    backgroundColor: note.color,
-                    border: '1px solid rgba(0,0,0,0.1)'
-                  }}
-                  draggable
+                  onClick={() => setShowNewNoteForm(!showNewNoteForm)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium shadow-md hover:shadow-lg transition-all"
                 >
-                  <div className="h-full flex flex-col">
-                    <textarea
-                      value={note.content}
-                      onChange={(e) => updateNote(note._id, { content: e.target.value })}
-                      className="flex-1 bg-transparent resize-none border-none outline-none text-gray-800 placeholder-gray-500"
-                      placeholder="Write something..."
-                      maxLength={500}
-                    />
-                    
-                    <div className="flex justify-between items-center mt-2">
-                      <small className="text-gray-600 text-xs">
-                        {note.timestamp ? new Date(note.timestamp).toLocaleDateString() : 'Now'}
-                      </small>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const newColorIndex = (PRESET_COLORS.findIndex(c => c.value === note.color) + 1) % PRESET_COLORS.length;
-                            updateNote(note._id, { color: PRESET_COLORS[newColorIndex].value });
-                          }}
-                          className="p-1 hover:bg-black hover:bg-opacity-10 rounded"
-                          title="Change color"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v11a3 3 0 106 0V4a2 2 0 00-2-2H4zm1 14a1 1 0 100-2 1 1 0 000 2zm5-1.757l4.9-4.9a2 2 0 000-2.828L13.485 5.1a2 2 0 00-2.828 0L10 5.757v8.486zM16 18H9.071l6-6H16a2 2 0 012 2v2a2 2 0 01-2 2z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNote(note._id);
-                          }}
-                          className="p-1 hover:bg-red-200 hover:text-red-600 rounded transition-colors"
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
+                  <PlusCircleIcon className="h-5 w-5" />
+                  <span>{showNewNoteForm ? 'Cancel' : 'Add Note'}</span>
+                </button>
+              </header>
+
+              {/* Error message */}
+              {error && (
+                <div className="mb-6 px-4 py-3 rounded-lg text-sm flex items-center bg-red-50 text-red-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              {/* New Note Form */}
+              {showNewNoteForm && (
+                <div className="mb-6 bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                  <h2 className="text-lg font-semibold mb-4">Create New Note</h2>
+                  <textarea
+                    className="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={4}
+                    placeholder="Write your note here..."
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                  />
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {PRESET_COLORS.map((color) => (
+                      <button
+                        key={color.value}
+                        className={`w-8 h-8 rounded-full ${color.value.split(' ')[0]} border-2 ${selectedColor === color.value ? 'border-black' : 'border-transparent'}`}
+                        onClick={() => setSelectedColor(color.value)}
+                        aria-label={`Select ${color.name} color`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={createNewNote}
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                  >
+                    <PlusCircleIcon className="h-5 w-5" />
+                    <span>Create Note</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Notes Board */}
+              <div className="relative">
+                {loading ? (
+                  <div className="flex justify-center items-center py-16">
+                    <div className="animate-spin h-8 w-8 text-purple-500" aria-label="Loading">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                     </div>
                   </div>
-                </div>
-              ))}
-            </DndContext>
-          )}
-        </div>
+                ) : (
+                  <div
+                    ref={containerRef}
+                    className="relative min-h-[500px] w-full bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden"
+                    style={{ height: 'calc(100vh - 300px)' }}
+                  >
+                    <DndContext
+                      sensors={sensors}
+                      onDragEnd={handleDragEnd}
+                      modifiers={[restrictToParentElement]}
+                    >
+                      {notes.map((note) => (
+                        <NoteCard 
+                          key={note._id} 
+                          note={note} 
+                          onUpdate={updateNote}
+                          onDelete={deleteNote}
+                          onResize={handleResize}
+                          containerRef={containerRef}
+                        />
+                      ))}
+                    </DndContext>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>💡 Tip: Drag notes to reposition them • Click and type to edit anytime</p>
+                    {notes.length === 0 && !loading && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p>No notes yet. Create your first note!</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
