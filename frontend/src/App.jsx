@@ -9,6 +9,9 @@ import Analytics from './pages/Analytics';
 import Pomodoro from './pages/Pomodoro';
 import StickyNotes from './pages/StickyNotes';
 import StudyTips from './pages/StudyTips';
+import FocusMusic from './pages/FocusMusic';
+import { useNavigate } from "react-router-dom";
+
 
 // Design system constants
 const COLORS = {
@@ -27,11 +30,11 @@ const COLORS = {
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem('token') !== null;
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  
+
   return children;
 };
 
@@ -53,7 +56,7 @@ const AppLayout = ({ children }) => {
               </div>
               <span className="text-xl font-bold text-gray-800">TaskRadar</span>
             </div>
-            <button 
+            <button
               onClick={() => setMobileMenuOpen(false)}
               className="md:hidden text-gray-500 hover:text-gray-700"
             >
@@ -62,7 +65,7 @@ const AppLayout = ({ children }) => {
               </svg>
             </button>
           </div>
-          
+
           <nav className="flex-1 space-y-1">
             <NavLink to="/tasks" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
               Tasks
@@ -82,10 +85,13 @@ const AppLayout = ({ children }) => {
             <NavLink to="/study-tips" icon="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
               Study Tips
             </NavLink>
+            <NavLink to="/focus-music" icon="M9 2a1 1 0 00-1 1v17a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1H9zm6 0a1 1 0 011 1v17a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1h6zM12 5a1 1 0 100-2 1 1 0 000 2z">
+              Focus Music
+            </NavLink>
           </nav>
-          
+
           <div className="mt-auto p-4">
-            <button 
+            <button
               onClick={() => {
                 localStorage.removeItem('token');
                 window.location.href = '/login';
@@ -100,12 +106,12 @@ const AppLayout = ({ children }) => {
           </div>
         </div>
       </div>
-      
+
       {/* Main content */}
       <div className="flex-1 md:ml-64">
         {/* Mobile header */}
         <header className="md:hidden bg-white shadow-sm p-4 flex items-center justify-between">
-          <button 
+          <button
             onClick={() => setMobileMenuOpen(true)}
             className="text-gray-500 hover:text-gray-700"
           >
@@ -123,7 +129,7 @@ const AppLayout = ({ children }) => {
           </div>
           <div className="w-6"></div> {/* Spacer for alignment */}
         </header>
-        
+
         {/* Content */}
         <main className="">
           {children}
@@ -137,21 +143,20 @@ const AppLayout = ({ children }) => {
 const NavLink = ({ to, icon, children }) => {
   const location = useLocation();
   const isActive = location.pathname.startsWith(to);
-  
+
   return (
     <Link
       to={to}
-      className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-        isActive 
-          ? 'bg-indigo-50 text-indigo-600 font-medium' 
+      className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${isActive
+          ? 'bg-indigo-50 text-indigo-600 font-medium'
           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-      }`}
+        }`}
     >
-      <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        className="h-5 w-5" 
-        fill="none" 
-        viewBox="0 0 24 24" 
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-5 w-5"
+        fill="none"
+        viewBox="0 0 24 24"
         stroke="currentColor"
       >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
@@ -160,62 +165,97 @@ const NavLink = ({ to, icon, children }) => {
     </Link>
   );
 };
-
-// Simple Home component
 const Home = () => {
   const location = useLocation();
-  const isAuthenticated = localStorage.getItem('token') !== null;
-  
+  const navigate = useNavigate();
+  const isAuthenticated = localStorage.getItem("token") !== null;
+  const signupSuccess = location.state?.signupSuccess;
+
+  useEffect(() => {
+    if (isAuthenticated && !signupSuccess) {
+      // If logged in and no success message, redirect to tasks
+      navigate("/tasks", { replace: true });
+    }
+  }, [isAuthenticated, signupSuccess, navigate]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 px-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md relative overflow-hidden text-center border border-gray-100">
+        {/* Decorative circles */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-indigo-100/40 rounded-full"></div>
         <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-blue-100/40 rounded-full"></div>
-        
+
         <div className="relative z-10">
+          {/* Logo */}
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
               </svg>
             </div>
           </div>
-          
+
+          {/* Title */}
           <h1 className="text-3xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">
             TaskRadar Dashboard
           </h1>
-          
-          {location.state?.signupSuccess && (
+
+          {/* Signup success message */}
+          {signupSuccess && (
             <div className="mb-6 px-4 py-3 rounded-lg text-sm flex items-center justify-center bg-green-50 text-green-600 border border-green-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
-              {location.state.signupSuccess}
+              {signupSuccess}
             </div>
           )}
-          
+
+          {/* Tagline */}
           <p className="text-gray-600 mb-8">
             Track your tasks and boost productivity with AI-powered insights.
           </p>
-          
+
+          {/* Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {isAuthenticated ? (
-              <Link 
-                to="/tasks" 
+              <Link
+                to="/tasks"
                 className="py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-medium shadow-md hover:shadow-lg transition-all text-center hover:from-indigo-600 hover:to-blue-600"
               >
                 View Tasks
               </Link>
             ) : (
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-medium shadow-md hover:shadow-lg transition-all text-center hover:from-indigo-600 hover:to-blue-600"
               >
                 Login
               </Link>
             )}
-            <Link 
-              to="/signup" 
+            <Link
+              to="/signup"
               className="py-3 px-6 rounded-xl border border-indigo-200 text-indigo-600 font-medium hover:bg-indigo-50 transition-all text-center"
             >
               Sign Up
@@ -227,6 +267,7 @@ const Home = () => {
   );
 };
 
+
 function App() {
   return (
     <BrowserRouter>
@@ -234,67 +275,77 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        
+
         {/* Authenticated routes */}
-        <Route 
-          path="/tasks" 
+        <Route
+          path="/tasks"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <TaskList />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/create-task" 
+        <Route
+          path="/create-task"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <CreateTask />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/analytics" 
+        <Route
+          path="/analytics"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <Analytics />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/pomodoro" 
+        <Route
+          path="/pomodoro"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <Pomodoro />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/sticky-notes" 
+        <Route
+          path="/sticky-notes"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <StickyNotes />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/study-tips" 
+        <Route
+          path="/study-tips"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <StudyTips />
               </AppLayout>
             </ProtectedRoute>
-          } 
+          }
+        />
+        <Route
+          path="/focus-music"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <FocusMusic />
+              </AppLayout>
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </BrowserRouter>

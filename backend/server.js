@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const stickyNoteRoutes = require('./routes/stickyNoteRoutes');
 const studyTipsRoutes = require('./routes/studyTipsRoutes');
+const musicRoutes = require('./routes/musicRoutes');
 
 connectDB();
 
@@ -20,6 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/sticky-notes', stickyNoteRoutes);
 app.use('/api/study-tips', studyTipsRoutes);
+app.use('/api/music', musicRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

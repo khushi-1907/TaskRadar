@@ -7,6 +7,17 @@ const StudyTips = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Function to convert markdown bold to HTML
+  const renderWithBold = (text) => {
+    return text.split('**').map((part, index) => 
+      index % 2 === 1 ? (
+        <strong key={index}>{part}</strong>
+      ) : (
+        <span key={index}>{part}</span>
+      )
+    );
+  };
+
   const fetchStudyTips = async (e) => {
     e.preventDefault();
     if (!topic.trim()) {
@@ -22,7 +33,7 @@ const StudyTips = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`, // Add auth token
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ topic }),
       });
@@ -113,7 +124,9 @@ const StudyTips = () => {
                           <span className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-medium">
                             {index + 1}
                           </span>
-                          <p className="text-gray-700">{tip}</p>
+                          <p className="text-gray-700">
+                            {renderWithBold(tip)}
+                          </p>
                         </div>
                       </div>
                     ))}
