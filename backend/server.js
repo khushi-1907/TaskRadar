@@ -2,15 +2,13 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
-
+dotenv.config();
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
-const aiRoutes = require('./routes/aiRoutes');
 const stickyNoteRoutes = require('./routes/stickyNoteRoutes');
 const studyTipsRoutes = require('./routes/studyTipsRoutes');
 
-dotenv.config();
 connectDB();
 
 const app = express();
@@ -20,7 +18,6 @@ app.use(express.json());
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
-app.use('/api/ai', aiRoutes);
 app.use('/api/sticky-notes', stickyNoteRoutes);
 app.use('/api/study-tips', studyTipsRoutes);
 
