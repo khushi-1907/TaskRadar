@@ -97,7 +97,7 @@ const FocusMusic = () => {
               {currentTrack && (
                 <audio
                   ref={audioRef}
-                  src={`http://localhost:5000${currentTrack.file}`}
+                  src={currentTrack ? `${api.defaults.baseURL}${currentTrack.file}` : ''}
                   loop
                   onWaiting={() => setStatus('Buffering...')}
                   onPlaying={() => setStatus(`Now playing: ${currentTrack.name}`)}
