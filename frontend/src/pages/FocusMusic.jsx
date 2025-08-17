@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
 import { MusicalNoteIcon, PlayIcon, PauseIcon } from '@heroicons/react/24/solid';
+import api from '../api';
 
 const FocusMusic = () => {
   const [tracks, setTracks] = useState([]);
@@ -16,7 +16,7 @@ const FocusMusic = () => {
       setStatus('Loading track list...');
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5000/api/music', {
+        const res = await api.get('/api/music', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

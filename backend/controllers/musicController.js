@@ -1,43 +1,27 @@
-const musicTracks = [
-  {
-    id: '1',
-    name: 'Lofi Study Beats',
-    genre: 'Lo-fi Hip Hop',
-    duration: '1:00:00',
-    coverImage: 'https://example.com/lofi-cover.jpg',
-    streamUrl: '',
-    tags: ['focus', 'study', 'calm']
-  },
-  {
-    id: '2',
-    name: 'Deep Concentration',
-    genre: 'Ambient',
-    duration: '45:00',
-    coverImage: 'https://example.com/ambient-cover.jpg',
-    streamUrl: 'https://example.com/stream/ambient',
-    tags: ['deep work', 'flow']
-  },
-  {
-    id: '3',
-    name: 'Coffee Shop Background',
-    genre: 'Ambient Noise',
-    duration: '2:30:00',
-    coverImage: 'https://example.com/coffee-cover.jpg',
-    streamUrl: 'https://example.com/stream/coffee',
-    tags: ['white noise', 'background']
-  }
-];
+// backend/controllers/musicController.js
+const path = require('path');
+const fs = require('fs');
 
-// @desc    Get all music tracks
-// @route   GET /api/music
-// @access  Private
-const getMusicTracks = async (req, res) => {
+const getMusicTracks = (req, res) => {
   try {
+    const musicDir = path.join(__dirname, '../public/music');
+
+    // Read files from music folder
+    const files = fs.readdirSync(musicDir);
+
+    // Create track objects
+    const tracks = files.map((file, index) => ({
+      id: String(index + 1),
+      name: file.replace(/\.[^/.]+$/, ""), // remove extension for display
+      file: `/music/${file}` // public path
+    }));
+
     res.json({
       success: true,
-      tracks: musicTracks
+      tracks
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch music tracks'
@@ -45,6 +29,4 @@ const getMusicTracks = async (req, res) => {
   }
 };
 
-module.exports = {
-  getMusicTracks
-};
+module.exports = { getMusicTracks };

@@ -9,12 +9,15 @@ const taskRoutes = require('./routes/taskRoutes');
 const stickyNoteRoutes = require('./routes/stickyNoteRoutes');
 const studyTipsRoutes = require('./routes/studyTipsRoutes');
 const musicRoutes = require('./routes/musicRoutes');
+const path = require('path');
 
 connectDB();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 // Use routes
 app.use('/api/auth', authRoutes);
