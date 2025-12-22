@@ -7,7 +7,6 @@ const OR_API_KEY = process.env.OPENROUTER_API_KEY;
 const getStudyTips = async (req, res) => {
   try {
     if (!OR_API_KEY) {
-      console.error('OPENROUTER_API_KEY is not set in environment variables');
       return res.status(500).json({
         success: false,
         message: 'Server configuration error: Missing OpenRouter API key',
@@ -16,76 +15,87 @@ const getStudyTips = async (req, res) => {
 
     const { topic } = req.body;
 
-    if (!topic) {
+    if (!topic || typeof topic !== 'string') {
       return res.status(400).json({
         success: false,
-        message: 'Topic is required',
+        message: 'Valid topic is required',
       });
     }
 
-    // Prepare conversation
     const messages = [
-      { role: 'system', content: 'You are an AI tutor generating concise study tips.' },
-      { role: 'user', content: `Give 5 concise study tips for learning ${topic} effectively. Format as a numbered list.` }
+      {
+        role: 'system',
+        content: 'You are an AI tutor. Respond ONLY with a numbered list of 5 concise study tips.',
+      },
+      {
+        role: 'user',
+        content: `Topic: ${topic}`,
+      },
     ];
 
-    // OpenRouter API request
     const response = await axios.post(
       OR_API_URL,
       {
-        model: 'deepseek/deepseek-chat-v3-0324:free',
+        model: 'deepseek/deepseek-r1-0528:free',
         messages,
-        temperature: 0.5
+        temperature: 0.5,
+        max_tokens: 300,
       },
       {
         headers: {
           Authorization: `Bearer ${OR_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+
+          // 🔴 REQUIRED by OpenRouter (often missing)
+          'HTTP-Referer': 'http://localhost:3000', // or your site URL
+          'X-Title': 'Study Tips API',
+        },
       }
     );
 
-    // Extract generated text
-    const output = response.data?.choices?.[0]?.message?.content || '';
+    const output = response.data?.choices?.[0]?.message?.content;
 
-    // Extract numbered tips
-    const tips = output
-      .split('\n')
-      .filter(line => /^\d+\./.test(line.trim()))
-      .map(line => line.replace(/^\d+\.\s*/, '').trim())
-      .slice(0, 5);
-
-    if (!tips.length) {
+    if (!output) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to generate study tips',
+        message: 'No response from AI model',
       });
     }
 
-    res.status(200).json({
+    // More robust parsing handling various formats (1., 1), *, -, **)
+    const tips = output
+      .split('\n')
+      .map(line => line.trim())
+      // Match numbers (1., 1), bullets (*, -, •), and bold numbers (**1.**)
+      .filter(line => /^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/.test(line))
+      // cleanup the list markers and any bold formatting
+      .map(line => line.replace(/^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/, '').replace(/^\*\*|\*\*$/g, ''))
+      .filter(line => line.length > 10) // Filter out very short lines/artifacts
+      .slice(0, 5);
+
+    if (tips.length === 0) {
+      console.error('Failed to parse tips from output:', output);
+      return res.status(500).json({
+        success: false,
+        message: 'AI response could not be parsed. Please try again.',
+      });
+    }
+
+    return res.status(200).json({
       success: true,
       tips,
     });
   } catch (error) {
-    console.error('Error in getStudyTips:', error);
+    console.error('Error in getStudyTips:', error?.response?.data || error);
 
-    if (error.response) {
-      return res.status(error.response.status || 500).json({
-        success: false,
-        message:
-          error.response.data?.error ||
-          error.message ||
-          'Failed to process your request',
-      });
-    }
-
-    res.status(500).json({
+    return res.status(error?.response?.status || 500).json({
       success: false,
-      message: error.message || 'An unexpected error occurred',
+      message:
+        error?.response?.data?.error?.message ||
+        error.message ||
+        'Failed to generate study tips',
     });
   }
 };
 
-module.exports = {
-  getStudyTips,
-};
+module.exports = { getStudyTips };

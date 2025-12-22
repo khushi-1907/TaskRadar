@@ -19,39 +19,53 @@ const StudyTips = () => {
   };
 
   const fetchStudyTips = async (e) => {
-    e.preventDefault();
-    if (!topic.trim()) {
-      setError('Please enter a study topic');
-      return;
-    }
+  e.preventDefault();
 
-    setIsLoading(true);
-    setError('');
+  if (!topic.trim()) {
+    setError('Please enter a study topic');
+    return;
+  }
 
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/study-tips`, {
+  setIsLoading(true);
+  setError('');
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/study-tips`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ topic }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch study tips');
       }
+    );
 
-      const data = await response.json();
-      setTips(data.tips);
-    } catch (err) {
-      setError(err.message);
-      console.error('Error fetching study tips:', err);
-    } finally {
-      setIsLoading(false);
+    const contentType = response.headers.get('content-type');
+
+    // ✅ SAFETY CHECK
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(
+        `Server returned non-JSON response:\n${text.slice(0, 200)}`
+      );
     }
-  };
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to fetch study tips');
+    }
+
+    setTips(data.tips);
+  } catch (err) {
+    console.error('Error fetching study tips:', err);
+    setError(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f9f0ff] to-[#e0f7fa]">
