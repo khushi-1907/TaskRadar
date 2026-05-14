@@ -1,15 +1,13 @@
 const axios = require('axios');
 
-// OpenRouter API endpoint
-const OR_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OR_API_KEY = process.env.OPENROUTER_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 const getStudyTips = async (req, res) => {
   try {
-    if (!OR_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return res.status(500).json({
         success: false,
-        message: 'Server configuration error: Missing OpenRouter API key',
+        message: 'Missing Gemini API key',
       });
     }
 
@@ -22,62 +20,64 @@ const getStudyTips = async (req, res) => {
       });
     }
 
-    const messages = [
-      {
-        role: 'system',
-        content: 'You are an AI tutor. Respond ONLY with a numbered list of 5 concise study tips.',
-      },
-      {
-        role: 'user',
-        content: `Topic: ${topic}`,
-      },
-    ];
+    // ✅ Gemini prompt (single text instead of chat roles)
+    const prompt = `
+You are an AI tutor. Respond ONLY with a numbered list of 5 concise study tips.
+
+Topic: ${topic}
+`;
 
     const response = await axios.post(
-      OR_API_URL,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
-        model: 'deepseek/deepseek-r1-0528:free',
-        messages,
-        temperature: 0.5,
-        max_tokens: 300,
+        contents: [
+          {
+            parts: [{ text: prompt }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.5,
+          maxOutputTokens: 300
+        }
       },
       {
         headers: {
-          Authorization: `Bearer ${OR_API_KEY}`,
           'Content-Type': 'application/json',
-
-          // 🔴 REQUIRED by OpenRouter (often missing)
-          'HTTP-Referer': 'http://localhost:3000', // or your site URL
-          'X-Title': 'Study Tips API',
         },
       }
     );
 
-    const output = response.data?.choices?.[0]?.message?.content;
+    // ✅ Gemini response extraction
+    const output =
+      response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!output) {
       return res.status(500).json({
         success: false,
-        message: 'No response from AI model',
+        message: 'No response from Gemini model',
       });
     }
 
-    // More robust parsing handling various formats (1., 1), *, -, **)
+    // ✅ SAME parsing logic (works fine)
     const tips = output
       .split('\n')
-      .map(line => line.trim())
-      // Match numbers (1., 1), bullets (*, -, •), and bold numbers (**1.**)
-      .filter(line => /^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/.test(line))
-      // cleanup the list markers and any bold formatting
-      .map(line => line.replace(/^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/, '').replace(/^\*\*|\*\*$/g, ''))
-      .filter(line => line.length > 10) // Filter out very short lines/artifacts
+      .map((line) => line.trim())
+      .filter(line =>
+        /^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/.test(line)
+      )
+      .map(line =>
+        line
+          .replace(/^(\d+[\.\)]?|[-*•]|\*\*\d+[\.\)]\*\*)\s+/, '')
+          .replace(/^\*\*|\*\*$/g, '')
+      )
+      .filter(line => line.length > 10)
       .slice(0, 5);
 
     if (tips.length === 0) {
       console.error('Failed to parse tips from output:', output);
       return res.status(500).json({
         success: false,
-        message: 'AI response could not be parsed. Please try again.',
+        message: 'AI response could not be parsed',
       });
     }
 
@@ -86,7 +86,7 @@ const getStudyTips = async (req, res) => {
       tips,
     });
   } catch (error) {
-    console.error('Error in getStudyTips:', error?.response?.data || error);
+    console.error('Gemini Error:', error?.response?.data || error);
 
     return res.status(error?.response?.status || 500).json({
       success: false,
